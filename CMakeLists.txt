@@ -17,15 +17,16 @@ FetchContent_MakeAvailable(googletest)
 
 enable_testing()
 
-add_executable(order_tests
+add_executable(matching_tests
     tests/order_test.cpp
+    tests/price_level_test.cpp
 )
 
-target_include_directories(order_tests PRIVATE
+target_include_directories(matching_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_compile_options(order_tests PRIVATE
+target_compile_options(matching_tests PRIVATE
     -Wall
     -Wextra
     -Wpedantic
@@ -33,11 +34,10 @@ target_compile_options(order_tests PRIVATE
     -Wshadow
 )
 
-target_link_libraries(order_tests PRIVATE
+target_link_libraries(matching_tests PRIVATE
     GTest::gtest_main
 )
 
-add_test(
-    NAME order_tests
-    COMMAND order_tests
-)
+include(GoogleTest)
+
+gtest_discover_tests(matching_tests)
