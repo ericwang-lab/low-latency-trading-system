@@ -63,3 +63,38 @@ Trade-off:
 Exception-based checks may not be appropriate for a latency-critical hot
 path. This decision will be revisited after profiling and may later be
 replaced by caller-enforced preconditions.
+
+## Order book price-level storage
+
+The initial `OrderBook` stores price levels using ordered maps.
+
+Bids use `std::greater<Price>` so that the highest bid is stored at
+`begin()`. Asks use `std::less<Price>` so that the lowest ask is stored at
+`begin()`.
+
+Reason:
+
+The matching engine needs efficient access to the best bid and best ask.
+Using ordered maps keeps price levels sorted automatically and provides
+`O(log n)` insertion and lookup while allowing the best price to be accessed
+directly from `begin()`.
+
+Trade-off:
+
+`std::map` is a tree-based container with dynamic allocation and pointer
+chasing, which may have poor cache locality and may not be suitable for a
+latency-critical production order book.
+
+This is a correctness-first implementation. The price-level data structure
+will be revisited after benchmarking and profiling.
+
+## Resting orders in the OrderBook
+
+`OrderBook` currently accepts only limit orders.
+
+Market orders are rejected because they should not rest in the book.
+They will later be handled by the matching engine, which consumes liquidity
+from the opposite side of the book.
+
+Any remaining quantity from an eligible limit order may be added to the
+`OrderBook` after matching.
