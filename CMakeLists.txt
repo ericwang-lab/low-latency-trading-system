@@ -21,6 +21,7 @@ add_executable(matching_tests
     tests/order_test.cpp
     tests/price_level_test.cpp
     tests/order_book_test.cpp
+    tests/matching_engine_test.cpp
 )
 
 target_include_directories(matching_tests PRIVATE

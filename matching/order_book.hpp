@@ -76,6 +76,34 @@ public:
         return asks_.begin()->first;
     }
 
+    PriceLevel* best_ask_level() {
+        if (asks_.empty()) {
+            return nullptr;
+        }
+
+        return &asks_.begin()->second;
+    }
+
+    PriceLevel* best_bid_level() {
+        if (bids_.empty()) {
+            return nullptr;
+        }
+
+        return &bids_.begin()->second;
+    }
+
+    void remove_best_ask_level() {
+        if (!asks_.empty()) {
+            asks_.erase(asks_.begin());
+        }
+    }
+
+    void remove_best_bid_level() {
+        if (!bids_.empty()) {
+            bids_.erase(bids_.begin());
+        }
+    }
+
 
 private:
     std::map<Price, PriceLevel, std::greater<Price>> bids_;

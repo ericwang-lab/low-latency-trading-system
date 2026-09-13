@@ -98,3 +98,35 @@ from the opposite side of the book.
 
 Any remaining quantity from an eligible limit order may be added to the
 `OrderBook` after matching.
+
+## Matching engine behavior
+
+The matching engine currently supports limit orders using price-time priority.
+
+For incoming buy orders:
+
+- match against the lowest ask first
+- the incoming price must be greater than or equal to the ask price
+
+For incoming sell orders:
+
+- match against the highest bid first
+- the incoming price must be less than or equal to the bid price
+
+Within the same price level, resting orders are matched in FIFO order.
+
+The matched quantity is:
+
+`min(incoming_quantity, resting_quantity)`
+
+Fully filled resting orders are removed. Empty price levels are also removed
+from the order book.
+
+If a limit order still has remaining quantity after all eligible matches are
+exhausted, the remainder becomes a resting order in the book.
+
+Trade-off:
+
+The current implementation prioritizes correctness and clarity. Matching,
+price-level lookup, container allocation, and branching behavior will be
+benchmarked and profiled before introducing low-latency optimizations.
