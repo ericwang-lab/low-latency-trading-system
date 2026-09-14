@@ -19,6 +19,18 @@ public:
             );
         }
 
+        if (order.price <= 0) {
+            throw std::invalid_argument(
+                "Limit order price must be greater than zero"
+            );
+        }
+
+        if (order.quantity == 0) {
+            throw std::invalid_argument(
+                "Order quantity must be greater than zero"
+            );
+        }
+
         if (order.side == Side::Buy) {
             auto result = bids_.try_emplace(
                 order.price,

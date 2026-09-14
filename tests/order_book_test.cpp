@@ -169,3 +169,63 @@ TEST(OrderBookTest, RejectsMarketOrder) {
         std::invalid_argument
     );
 }
+
+TEST(OrderBookTest, RejectsZeroQuantityOrder) {
+    OrderBook book;
+
+    Order order{
+        .id = 1,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 0
+    };
+
+    EXPECT_THROW(
+        book.add_order(order),
+        std::invalid_argument
+    );
+
+    EXPECT_FALSE(book.best_bid().has_value());
+    EXPECT_FALSE(book.best_ask().has_value());
+}
+
+TEST(OrderBookTest, RejectsZeroPriceLimitOrder) {
+    OrderBook book;
+
+    Order order{
+        .id = 1,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 0,
+        .quantity = 100
+    };
+
+    EXPECT_THROW(
+        book.add_order(order),
+        std::invalid_argument
+    );
+
+    EXPECT_FALSE(book.best_bid().has_value());
+    EXPECT_FALSE(book.best_ask().has_value());
+}
+
+TEST(OrderBookTest, RejectsNegativePriceLimitOrder) {
+    OrderBook book;
+
+    Order order{
+        .id = 1,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = -100,
+        .quantity = 100
+    };
+
+    EXPECT_THROW(
+        book.add_order(order),
+        std::invalid_argument
+    );
+
+    EXPECT_FALSE(book.best_bid().has_value());
+    EXPECT_FALSE(book.best_ask().has_value());
+}

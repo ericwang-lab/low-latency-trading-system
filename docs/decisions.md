@@ -130,3 +130,40 @@ Trade-off:
 The current implementation prioritizes correctness and clarity. Matching,
 price-level lookup, container allocation, and branching behavior will be
 benchmarked and profiled before introducing low-latency optimizations.
+
+## Market order behavior
+
+The matching engine supports market orders in addition to limit orders.
+
+Market orders do not have a price constraint. They consume available liquidity
+starting from the best opposing price and continue across price levels using
+price-time priority.
+
+Market orders never become resting orders.
+
+If available liquidity is insufficient, the unmatched quantity is returned by
+the matching engine but is not inserted into the order book.
+
+For the current order representation, market orders use `price = 0` because
+the price field is not relevant to their execution.
+
+## Order validation
+
+Limit orders must satisfy:
+
+- `price > 0`
+- `quantity > 0`
+
+Market orders must satisfy:
+
+- `quantity > 0`
+
+Validation is performed before matching begins so that invalid incoming orders
+cannot partially modify the order book before being rejected.
+
+The OrderBook also independently validates orders before allowing them to
+become resting orders.
+
+This intentionally duplicates some validation between the MatchingEngine and
+OrderBook. Each component maintains its own invariants rather than relying
+entirely on its caller.

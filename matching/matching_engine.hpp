@@ -14,9 +14,15 @@ public:
         : book_(book) {}
 
     Order process(Order order) {
-        if (order.type != OrderType::Limit) {
+        if (order.type == OrderType::Limit && order.price <= 0) {
             throw std::invalid_argument(
-                "MatchingEngine currently only supports limit orders"
+                "Limit order price must be greater than zero"
+            );
+        }
+
+        if (order.quantity == 0) {
+            throw std::invalid_argument(
+                "Order quantity must be greater than zero"
             );
         }
 
@@ -30,7 +36,7 @@ public:
                 }
 
                 // Buy price is lower than best ask -> no crossing.
-                if (order.price < level->price()) {
+                if ( order.type == OrderType::Limit && order.price < level->price()) {
                     break;
                 }
 
@@ -51,7 +57,7 @@ public:
                 }
             }
 
-            if (order.quantity > 0) {
+            if (order.type == OrderType::Limit && order.quantity > 0) {
                 book_.add_order(order);
             }
 
@@ -67,7 +73,7 @@ public:
             }
 
             // Sell price is higher than best bid -> no crossing.
-            if (order.price > level->price()) {
+            if (order.type == OrderType::Limit && order.price > level->price()) {
                 break;
             }
 
@@ -87,7 +93,7 @@ public:
             }
         }
 
-        if (order.quantity > 0) {
+        if (order.type == OrderType::Limit && order.quantity > 0) {
             book_.add_order(order);
         }
 
