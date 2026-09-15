@@ -167,3 +167,35 @@ become resting orders.
 This intentionally duplicates some validation between the MatchingEngine and
 OrderBook. Each component maintains its own invariants rather than relying
 entirely on its caller.
+
+## Trade result storage
+
+`MatchingEngine::process()` currently stores generated trades in a
+`std::vector<Trade>` and returns them as part of `ProcessResult`.
+
+This design was chosen for correctness and API simplicity during the initial
+implementation.
+
+A vector may perform dynamic memory allocation when trades are appended.
+This is potentially undesirable on a latency-sensitive matching path because
+heap allocation can increase both latency and latency variance.
+
+The current implementation intentionally does not optimize this yet.
+
+The project follows:
+
+Correct -> Measure -> Profile -> Optimize -> Measure again
+
+During benchmarking, the cost and frequency of trade-result allocations will
+be measured before choosing an alternative representation.
+
+Possible future approaches include:
+
+- reserving expected trade capacity;
+- reusing preallocated storage;
+- fixed-capacity trade buffers;
+- object/memory pools;
+- caller-provided output buffers.
+
+Any optimization will be justified by benchmark and profiling results rather
+than introduced speculatively.

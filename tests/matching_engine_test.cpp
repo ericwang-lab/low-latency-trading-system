@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
 #include "matching/matching_engine.hpp"
+#include "matching/process_result.hpp"
+#include "matching/trade.hpp"
 
 using namespace trading;
 
@@ -27,9 +29,9 @@ TEST(MatchingEngineTest, BuyOrderPartiallyFillsBestAsk) {
         .quantity = 60
     };
 
-    Order result = engine.process(incoming_buy);
+    auto result = engine.process(incoming_buy);
 
-    EXPECT_EQ(result.quantity, 0);
+    EXPECT_EQ(result.order.quantity, 0);
 
     PriceLevel* ask_level = book.best_ask_level();
 
@@ -63,9 +65,9 @@ TEST(MatchingEngineTest, BuyOrderFullyConsumesBestAsk) {
         .quantity = 100
     };
 
-    Order result = engine.process(incoming_buy);
+    auto result = engine.process(incoming_buy);
 
-    EXPECT_EQ(result.quantity, 0);
+    EXPECT_EQ(result.order.quantity, 0);
 
     EXPECT_FALSE(book.best_ask().has_value());
     EXPECT_EQ(book.best_ask_level(), nullptr);
@@ -112,9 +114,9 @@ TEST(MatchingEngineTest, BuyOrderMatchesMultipleOrdersAtSamePrice) {
         .quantity = 100
     };
 
-    Order result = engine.process(incoming_buy);
+    auto result = engine.process(incoming_buy);
 
-    EXPECT_EQ(result.quantity, 0);
+    EXPECT_EQ(result.order.quantity, 0);
 
     PriceLevel* ask_level = book.best_ask_level();
 
@@ -167,9 +169,9 @@ TEST(MatchingEngineTest, SellOrderMatchesMultipleOrdersAtSamePrice) {
         .quantity = 100
     };
 
-    Order result = engine.process(incoming_sell);
+    auto result = engine.process(incoming_sell);
 
-    EXPECT_EQ(result.quantity, 0);
+    EXPECT_EQ(result.order.quantity, 0);
 
     PriceLevel* bid_level = book.best_bid_level();
 
@@ -222,9 +224,9 @@ TEST(MatchingEngineTest, BuyOrderMatchesAcrossMultiplePriceLevels) {
         .quantity = 60
     };
 
-    Order result = engine.process(incoming_buy);
+    auto result = engine.process(incoming_buy);
 
-    EXPECT_EQ(result.quantity, 0);
+    EXPECT_EQ(result.order.quantity, 0);
 
     EXPECT_FALSE(book.find_ask_level(10100) != nullptr);
 
@@ -288,9 +290,9 @@ TEST(MatchingEngineTest, SellOrderMatchesAcrossMultiplePriceLevels) {
         .quantity = 60
     };
 
-    Order result = engine.process(incoming_sell);
+    auto result = engine.process(incoming_sell);
 
-    EXPECT_EQ(result.quantity, 0);
+    EXPECT_EQ(result.order.quantity, 0);
 
     EXPECT_EQ(book.find_bid_level(10300), nullptr);
 
@@ -336,9 +338,9 @@ TEST(MatchingEngineTest, UnmatchedBuyOrderRestsInBook) {
         .quantity = 60
     };
 
-    Order result = engine.process(incoming_buy);
+    auto result = engine.process(incoming_buy);
 
-    EXPECT_EQ(result.quantity, 60);
+    EXPECT_EQ(result.order.quantity, 60);
 
     EXPECT_TRUE(book.best_ask().has_value());
     EXPECT_EQ(book.best_ask().value(), 10300);
@@ -386,9 +388,9 @@ TEST(MatchingEngineTest, UnmatchedSellOrderRestsInBook) {
         .quantity = 60
     };
 
-    Order result = engine.process(incoming_sell);
+    auto result = engine.process(incoming_sell);
 
-    EXPECT_EQ(result.quantity, 60);
+    EXPECT_EQ(result.order.quantity, 60);
 
     // Original bid should remain unchanged.
     EXPECT_TRUE(book.best_bid().has_value());
@@ -439,9 +441,9 @@ TEST(MatchingEngineTest, PartiallyFilledBuyOrderRestsRemainingQuantity) {
         .quantity = 100
     };
 
-    Order result = engine.process(incoming_buy);
+    auto result = engine.process(incoming_buy);
 
-    EXPECT_EQ(result.quantity, 60);
+    EXPECT_EQ(result.order.quantity, 60);
 
     // The resting sell was fully consumed.
     EXPECT_FALSE(book.best_ask().has_value());
@@ -483,9 +485,9 @@ TEST(MatchingEngineTest, PartiallyFilledSellOrderRestsRemainingQuantity) {
         .quantity = 100
     };
 
-    Order result = engine.process(incoming_sell);
+    auto result = engine.process(incoming_sell);
 
-    EXPECT_EQ(result.quantity, 60);
+    EXPECT_EQ(result.order.quantity, 60);
 
     // The resting buy was fully consumed.
     EXPECT_FALSE(book.best_bid().has_value());
@@ -527,9 +529,9 @@ TEST(MatchingEngineTest, BuyBelowBestAskDoesNotMatch) {
         .quantity = 60
     };
 
-    Order result = engine.process(incoming_buy);
+    auto result = engine.process(incoming_buy);
 
-    EXPECT_EQ(result.quantity, 60);
+    EXPECT_EQ(result.order.quantity, 60);
 
     // Resting ask should remain unchanged.
     EXPECT_TRUE(book.best_ask().has_value());
@@ -579,9 +581,9 @@ TEST(MatchingEngineTest, SellAboveBestBidDoesNotMatch) {
         .quantity = 60
     };
 
-    Order result = engine.process(incoming_sell);
+    auto result = engine.process(incoming_sell);
 
-    EXPECT_EQ(result.quantity, 60);
+    EXPECT_EQ(result.order.quantity, 60);
 
     // Resting bid should remain unchanged.
     EXPECT_TRUE(book.best_bid().has_value());
@@ -658,9 +660,9 @@ TEST(MatchingEngineTest, BuyOrderExactlyConsumesMultipleAskLevels) {
         .quantity = 400
     };
 
-    Order result = engine.process(incoming_buy);
+    auto result = engine.process(incoming_buy);
 
-    EXPECT_EQ(result.quantity, 0);
+    EXPECT_EQ(result.order.quantity, 0);
 
     EXPECT_FALSE(book.best_ask().has_value());
     EXPECT_EQ(book.best_ask_level(), nullptr);
@@ -718,9 +720,9 @@ TEST(MatchingEngineTest, SellOrderExactlyConsumesMultipleBidLevels) {
         .quantity = 400
     };
 
-    Order result = engine.process(incoming_sell);
+    auto result = engine.process(incoming_sell);
 
-    EXPECT_EQ(result.quantity, 0);
+    EXPECT_EQ(result.order.quantity, 0);
 
     EXPECT_FALSE(book.best_bid().has_value());
     EXPECT_EQ(book.best_bid_level(), nullptr);
@@ -812,9 +814,9 @@ TEST(MatchingEngineTest, MarketBuyConsumesBestAsk) {
         .quantity = 60
     };
 
-    Order result = engine.process(incoming_buy);
+    auto result = engine.process(incoming_buy);
 
-    EXPECT_EQ(result.quantity, 0);
+    EXPECT_EQ(result.order.quantity, 0);
 
     EXPECT_TRUE(book.best_ask().has_value());
     EXPECT_EQ(book.best_ask().value(), 10100);
@@ -852,9 +854,9 @@ TEST(MatchingEngineTest, MarketSellConsumesBestBid) {
         .quantity = 60
     };
 
-    Order result = engine.process(incoming_sell);
+    auto result = engine.process(incoming_sell);
 
-    EXPECT_EQ(result.quantity, 0);
+    EXPECT_EQ(result.order.quantity, 0);
 
     EXPECT_TRUE(book.best_bid().has_value());
     EXPECT_EQ(book.best_bid().value(), 10100);
@@ -892,9 +894,9 @@ TEST(MatchingEngineTest, MarketBuyDoesNotRestRemainingQuantity) {
         .quantity = 100
     };
 
-    Order result = engine.process(incoming_buy);
+    auto result = engine.process(incoming_buy);
 
-    EXPECT_EQ(result.quantity, 60);
+    EXPECT_EQ(result.order.quantity, 60);
 
     EXPECT_FALSE(book.best_ask().has_value());
     EXPECT_FALSE(book.best_bid().has_value());
@@ -925,9 +927,9 @@ TEST(MatchingEngineTest, MarketSellDoesNotRestRemainingQuantity) {
         .quantity = 100
     };
 
-    Order result = engine.process(incoming_sell);
+    auto result = engine.process(incoming_sell);
 
-    EXPECT_EQ(result.quantity, 60);
+    EXPECT_EQ(result.order.quantity, 60);
 
     EXPECT_FALSE(book.best_bid().has_value());
     EXPECT_FALSE(book.best_ask().has_value());
@@ -985,9 +987,9 @@ TEST(MatchingEngineTest, MarketBuyMatchesAcrossMultiplePriceLevels) {
         .quantity = 100
     };
 
-    Order result = engine.process(incoming_buy);
+    auto result = engine.process(incoming_buy);
 
-    EXPECT_EQ(result.quantity, 0);
+    EXPECT_EQ(result.order.quantity, 0);
 
     // 10100 should be completely consumed.
     EXPECT_EQ(book.find_ask_level(10100), nullptr);
@@ -1066,9 +1068,9 @@ TEST(MatchingEngineTest, MarketSellMatchesAcrossMultiplePriceLevels) {
         .quantity = 100
     };
 
-    Order result = engine.process(incoming_sell);
+    auto result = engine.process(incoming_sell);
 
-    EXPECT_EQ(result.quantity, 0);
+    EXPECT_EQ(result.order.quantity, 0);
 
     // 10300 should be completely consumed.
     EXPECT_EQ(book.find_bid_level(10300), nullptr);
@@ -1094,5 +1096,443 @@ TEST(MatchingEngineTest, MarketSellMatchesAcrossMultiplePriceLevels) {
     EXPECT_EQ(book.best_bid().value(), 10200);
 
     // Fully filled market sell must never rest.
+    EXPECT_FALSE(book.best_ask().has_value());
+}
+
+TEST(MatchingEngineTest, ReportsTradeForBuyOrder) {
+    OrderBook book;
+
+    Order resting_sell{
+        .id = 1,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    book.add_order(resting_sell);
+
+    MatchingEngine engine{book};
+
+    Order incoming_buy{
+        .id = 2,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10200,
+        .quantity = 60
+    };
+
+    auto result = engine.process(incoming_buy);
+
+    ASSERT_EQ(result.trades.size(), 1);
+
+    const Trade& trade = result.trades[0];
+
+    EXPECT_EQ(trade.buy_order_id, 2);
+    EXPECT_EQ(trade.sell_order_id, 1);
+    EXPECT_EQ(trade.price, 10100);
+    EXPECT_EQ(trade.quantity, 60);
+
+    EXPECT_EQ(result.order.quantity, 0);
+}
+
+TEST(MatchingEngineTest, ReportsTradeForSellOrder) {
+    OrderBook book;
+
+    Order resting_buy{
+        .id = 1,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10200,
+        .quantity = 100
+    };
+
+    book.add_order(resting_buy);
+
+    MatchingEngine engine{book};
+
+    Order incoming_sell{
+        .id = 2,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 60
+    };
+
+    auto result = engine.process(incoming_sell);
+
+    ASSERT_EQ(result.trades.size(), 1);
+
+    const Trade& trade = result.trades[0];
+
+    EXPECT_EQ(trade.buy_order_id, 1);
+    EXPECT_EQ(trade.sell_order_id, 2);
+    EXPECT_EQ(trade.price, 10200);
+    EXPECT_EQ(trade.quantity, 60);
+
+    EXPECT_EQ(result.order.quantity, 0);
+}
+
+TEST(MatchingEngineTest, ReportsMultipleTradesForBuyOrder) {
+    OrderBook book;
+
+    Order resting_sell_1{
+        .id = 1,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 40
+    };
+
+    Order resting_sell_2{
+        .id = 2,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 30
+    };
+
+    Order resting_sell_3{
+        .id = 3,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10200,
+        .quantity = 50
+    };
+
+    book.add_order(resting_sell_1);
+    book.add_order(resting_sell_2);
+    book.add_order(resting_sell_3);
+
+    MatchingEngine engine{book};
+
+    Order incoming_buy{
+        .id = 4,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10200,
+        .quantity = 100
+    };
+
+    auto result = engine.process(incoming_buy);
+
+    ASSERT_EQ(result.trades.size(), 3);
+
+    EXPECT_EQ(result.trades[0].buy_order_id, 4);
+    EXPECT_EQ(result.trades[0].sell_order_id, 1);
+    EXPECT_EQ(result.trades[0].price, 10100);
+    EXPECT_EQ(result.trades[0].quantity, 40);
+
+    EXPECT_EQ(result.trades[1].buy_order_id, 4);
+    EXPECT_EQ(result.trades[1].sell_order_id, 2);
+    EXPECT_EQ(result.trades[1].price, 10100);
+    EXPECT_EQ(result.trades[1].quantity, 30);
+
+    EXPECT_EQ(result.trades[2].buy_order_id, 4);
+    EXPECT_EQ(result.trades[2].sell_order_id, 3);
+    EXPECT_EQ(result.trades[2].price, 10200);
+    EXPECT_EQ(result.trades[2].quantity, 30);
+
+    EXPECT_EQ(result.order.quantity, 0);
+}
+
+TEST(MatchingEngineTest, ReportsMultipleTradesForSellOrder) {
+    OrderBook book;
+
+    Order resting_buy_1{
+        .id = 1,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10200,
+        .quantity = 40
+    };
+
+    Order resting_buy_2{
+        .id = 2,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10200,
+        .quantity = 30
+    };
+
+    Order resting_buy_3{
+        .id = 3,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 50
+    };
+
+    book.add_order(resting_buy_1);
+    book.add_order(resting_buy_2);
+    book.add_order(resting_buy_3);
+
+    MatchingEngine engine{book};
+
+    Order incoming_sell{
+        .id = 4,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    auto result = engine.process(incoming_sell);
+
+    ASSERT_EQ(result.trades.size(), 3);
+
+    EXPECT_EQ(result.trades[0].buy_order_id, 1);
+    EXPECT_EQ(result.trades[0].sell_order_id, 4);
+    EXPECT_EQ(result.trades[0].price, 10200);
+    EXPECT_EQ(result.trades[0].quantity, 40);
+
+    EXPECT_EQ(result.trades[1].buy_order_id, 2);
+    EXPECT_EQ(result.trades[1].sell_order_id, 4);
+    EXPECT_EQ(result.trades[1].price, 10200);
+    EXPECT_EQ(result.trades[1].quantity, 30);
+
+    EXPECT_EQ(result.trades[2].buy_order_id, 3);
+    EXPECT_EQ(result.trades[2].sell_order_id, 4);
+    EXPECT_EQ(result.trades[2].price, 10100);
+    EXPECT_EQ(result.trades[2].quantity, 30);
+
+    EXPECT_EQ(result.order.quantity, 0);
+}
+
+TEST(MatchingEngineTest, ReportsNoTradesWhenOrderDoesNotMatch) {
+    OrderBook book;
+
+    Order resting_sell{
+        .id = 1,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10200,
+        .quantity = 100
+    };
+
+    book.add_order(resting_sell);
+
+    MatchingEngine engine{book};
+
+    Order incoming_buy{
+        .id = 2,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 60
+    };
+
+    auto result = engine.process(incoming_buy);
+
+    EXPECT_TRUE(result.trades.empty());
+
+    EXPECT_EQ(result.order.quantity, 60);
+
+    ASSERT_TRUE(book.best_bid().has_value());
+    EXPECT_EQ(book.best_bid().value(), 10100);
+
+    ASSERT_TRUE(book.best_ask().has_value());
+    EXPECT_EQ(book.best_ask().value(), 10200);
+}
+
+TEST(MatchingEngineTest, MarketBuyReportsTradesAtRestingPrices) {
+    OrderBook book;
+
+    Order resting_sell_1{
+        .id = 1,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 40
+    };
+
+    Order resting_sell_2{
+        .id = 2,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10200,
+        .quantity = 50
+    };
+
+    book.add_order(resting_sell_1);
+    book.add_order(resting_sell_2);
+
+    MatchingEngine engine{book};
+
+    Order market_buy{
+        .id = 3,
+        .side = Side::Buy,
+        .type = OrderType::Market,
+        .price = 0,
+        .quantity = 60
+    };
+
+    auto result = engine.process(market_buy);
+
+    ASSERT_EQ(result.trades.size(), 2);
+
+    EXPECT_EQ(result.trades[0].buy_order_id, 3);
+    EXPECT_EQ(result.trades[0].sell_order_id, 1);
+    EXPECT_EQ(result.trades[0].price, 10100);
+    EXPECT_EQ(result.trades[0].quantity, 40);
+
+    EXPECT_EQ(result.trades[1].buy_order_id, 3);
+    EXPECT_EQ(result.trades[1].sell_order_id, 2);
+    EXPECT_EQ(result.trades[1].price, 10200);
+    EXPECT_EQ(result.trades[1].quantity, 20);
+
+    EXPECT_EQ(result.order.quantity, 0);
+}
+
+TEST(MatchingEngineTest, MarketSellReportsTradesAtRestingPrices) {
+    OrderBook book;
+
+    Order resting_buy_1{
+        .id = 1,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10200,
+        .quantity = 40
+    };
+
+    Order resting_buy_2{
+        .id = 2,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 50
+    };
+
+    book.add_order(resting_buy_1);
+    book.add_order(resting_buy_2);
+
+    MatchingEngine engine{book};
+
+    Order market_sell{
+        .id = 3,
+        .side = Side::Sell,
+        .type = OrderType::Market,
+        .price = 0,
+        .quantity = 60
+    };
+
+    auto result = engine.process(market_sell);
+
+    ASSERT_EQ(result.trades.size(), 2);
+
+    EXPECT_EQ(result.trades[0].buy_order_id, 1);
+    EXPECT_EQ(result.trades[0].sell_order_id, 3);
+    EXPECT_EQ(result.trades[0].price, 10200);
+    EXPECT_EQ(result.trades[0].quantity, 40);
+
+    EXPECT_EQ(result.trades[1].buy_order_id, 2);
+    EXPECT_EQ(result.trades[1].sell_order_id, 3);
+    EXPECT_EQ(result.trades[1].price, 10100);
+    EXPECT_EQ(result.trades[1].quantity, 20);
+
+    EXPECT_EQ(result.order.quantity, 0);
+}
+
+TEST(MatchingEngineTest, MarketBuyReportsTradesWhenLiquidityIsInsufficient) {
+    OrderBook book;
+
+    Order resting_sell_1{
+        .id = 1,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 40
+    };
+
+    Order resting_sell_2{
+        .id = 2,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10200,
+        .quantity = 50
+    };
+
+    book.add_order(resting_sell_1);
+    book.add_order(resting_sell_2);
+
+    MatchingEngine engine{book};
+
+    Order market_buy{
+        .id = 3,
+        .side = Side::Buy,
+        .type = OrderType::Market,
+        .price = 0,
+        .quantity = 150
+    };
+
+    auto result = engine.process(market_buy);
+
+    ASSERT_EQ(result.trades.size(), 2);
+
+    EXPECT_EQ(result.trades[0].buy_order_id, 3);
+    EXPECT_EQ(result.trades[0].sell_order_id, 1);
+    EXPECT_EQ(result.trades[0].price, 10100);
+    EXPECT_EQ(result.trades[0].quantity, 40);
+
+    EXPECT_EQ(result.trades[1].buy_order_id, 3);
+    EXPECT_EQ(result.trades[1].sell_order_id, 2);
+    EXPECT_EQ(result.trades[1].price, 10200);
+    EXPECT_EQ(result.trades[1].quantity, 50);
+
+    EXPECT_EQ(result.order.quantity, 60);
+
+    EXPECT_FALSE(book.best_ask().has_value());
+    EXPECT_FALSE(book.best_bid().has_value());
+}
+
+TEST(MatchingEngineTest, MarketSellReportsTradesWhenLiquidityIsInsufficient) {
+    OrderBook book;
+
+    Order resting_buy_1{
+        .id = 1,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10200,
+        .quantity = 40
+    };
+
+    Order resting_buy_2{
+        .id = 2,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 50
+    };
+
+    book.add_order(resting_buy_1);
+    book.add_order(resting_buy_2);
+
+    MatchingEngine engine{book};
+
+    Order market_sell{
+        .id = 3,
+        .side = Side::Sell,
+        .type = OrderType::Market,
+        .price = 0,
+        .quantity = 150
+    };
+
+    auto result = engine.process(market_sell);
+
+    ASSERT_EQ(result.trades.size(), 2);
+
+    EXPECT_EQ(result.trades[0].buy_order_id, 1);
+    EXPECT_EQ(result.trades[0].sell_order_id, 3);
+    EXPECT_EQ(result.trades[0].price, 10200);
+    EXPECT_EQ(result.trades[0].quantity, 40);
+
+    EXPECT_EQ(result.trades[1].buy_order_id, 2);
+    EXPECT_EQ(result.trades[1].sell_order_id, 3);
+    EXPECT_EQ(result.trades[1].price, 10100);
+    EXPECT_EQ(result.trades[1].quantity, 50);
+
+    EXPECT_EQ(result.order.quantity, 60);
+
+    EXPECT_FALSE(book.best_bid().has_value());
     EXPECT_FALSE(book.best_ask().has_value());
 }
