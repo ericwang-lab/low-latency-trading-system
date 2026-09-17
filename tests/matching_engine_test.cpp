@@ -1536,3 +1536,182 @@ TEST(MatchingEngineTest, MarketSellReportsTradesWhenLiquidityIsInsufficient) {
     EXPECT_FALSE(book.best_bid().has_value());
     EXPECT_FALSE(book.best_ask().has_value());
 }
+
+TEST(MatchingEngineTest, FullyFilledRestingOrderIsRemovedFromOrderIndex) {
+    OrderBook book;
+
+    Order resting_sell{
+        .id = 1,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    book.add_order(resting_sell);
+
+    MatchingEngine engine{book};
+
+    Order incoming_buy{
+        .id = 2,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    auto result = engine.process(incoming_buy);
+
+    ASSERT_EQ(result.order.quantity, 0);
+    ASSERT_EQ(result.trades.size(), 1);
+
+    // Resting order #1 was fully filled and no longer exists.
+    EXPECT_FALSE(book.cancel_order(1));
+}
+
+TEST(MatchingEngineTest, FullyFilledRestingOrderIsRemovedFromIndexWhenLevelRemains) {
+    OrderBook book;
+
+    Order resting_sell_1{
+        .id = 1,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    Order resting_sell_2{
+        .id = 2,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    book.add_order(resting_sell_1);
+    book.add_order(resting_sell_2);
+
+    MatchingEngine engine{book};
+
+    Order incoming_buy{
+        .id = 3,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    auto result = engine.process(incoming_buy);
+
+    ASSERT_EQ(result.order.quantity, 0);
+    ASSERT_EQ(result.trades.size(), 1);
+
+    // #1 was fully filled.
+    EXPECT_FALSE(book.cancel_order(1));
+
+    // #2 must still exist and remain untouched.
+    const PriceLevel* level = book.find_ask_level(10100);
+
+    ASSERT_NE(level, nullptr);
+    EXPECT_EQ(level->size(), 1);
+    EXPECT_EQ(level->front().id, 2);
+    EXPECT_EQ(level->front().quantity, 100);
+}
+
+TEST(MatchingEngineTest, FullyFilledRestingBuyOrderIsRemovedFromIndexWhenLevelRemains) {
+    OrderBook book;
+
+    Order resting_buy_1{
+        .id = 1,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    Order resting_buy_2{
+        .id = 2,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    book.add_order(resting_buy_1);
+    book.add_order(resting_buy_2);
+
+    MatchingEngine engine{book};
+
+    Order incoming_sell{
+        .id = 3,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    auto result = engine.process(incoming_sell);
+
+    ASSERT_EQ(result.order.quantity, 0);
+    ASSERT_EQ(result.trades.size(), 1);
+
+    // #1 was fully filled and must no longer exist in the index.
+    EXPECT_FALSE(book.cancel_order(1));
+
+    // #2 must still be resting at the same price level.
+    const PriceLevel* level = book.find_bid_level(10100);
+
+    ASSERT_NE(level, nullptr);
+    EXPECT_EQ(level->size(), 1);
+    EXPECT_EQ(level->front().id, 2);
+    EXPECT_EQ(level->front().quantity, 100);
+}
+
+TEST(MatchingEngineTest, AllowsReusingOrderIdAfterRestingOrderIsFullyFilled) {
+    OrderBook book;
+
+    Order resting_sell{
+        .id = 42,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    book.add_order(resting_sell);
+
+    MatchingEngine engine{book};
+
+    Order incoming_buy{
+        .id = 100,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    auto result = engine.process(incoming_buy);
+
+    ASSERT_EQ(result.order.quantity, 0);
+    ASSERT_EQ(result.trades.size(), 1);
+    ASSERT_FALSE(book.best_ask().has_value());
+
+    // #42 has been fully filled and should have been removed
+    // from both the PriceLevel and order_index_.
+    Order replacement{
+        .id = 42,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 9900,
+        .quantity = 200
+    };
+
+    EXPECT_NO_THROW(book.add_order(replacement));
+
+    const PriceLevel* level = book.find_bid_level(9900);
+
+    ASSERT_NE(level, nullptr);
+    EXPECT_EQ(level->size(), 1);
+    EXPECT_EQ(level->front().id, 42);
+    EXPECT_EQ(level->front().quantity, 200);
+}

@@ -199,3 +199,40 @@ Possible future approaches include:
 
 Any optimization will be justified by benchmark and profiling results rather
 than introduced speculatively.
+
+## Order lookup index and cancellation
+
+Order cancellation initially scanned all price levels and orders to locate an
+OrderId. This was correct but required a linear search through the book.
+
+The OrderBook now maintains a secondary index:
+
+    OrderId -> { Side, Price, PriceLevel::OrderIterator }
+
+This allows cancellation to locate the relevant price level and order directly.
+With price levels stored in std::map, cancellation is primarily O(log P), where
+P is the number of price levels.
+
+PriceLevel uses std::list<Order>, whose iterator stability allows iterators to
+resting orders to be stored in the secondary index.
+
+The secondary index introduces an important invariant: whenever a resting order
+is removed, its index entry must also be removed.
+
+MatchingEngine previously removed fully filled orders directly from PriceLevel.
+After introducing the index, this produced stale iterators and caused undefined
+behavior during later cancellation.
+
+Removal responsibility was therefore moved into OrderBook through
+remove_best_ask_order() and remove_best_bid_order(). OrderBook now owns
+synchronization between:
+
+- price-level storage;
+- the OrderId index;
+- empty price-level removal.
+
+Duplicate resting OrderIds are rejected to preserve the one-to-one relationship
+between resting orders and index entries.
+
+An OrderId may be reused after the previous resting order has left the book,
+either through cancellation or a full fill.

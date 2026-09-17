@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <list>
 #include <stdexcept>
+#include <iterator>
 
 #include "matching/order.hpp"
 
@@ -10,6 +11,7 @@ namespace trading {
 
 class PriceLevel {
 public:
+    using OrderIterator = std::list<Order>::iterator;
     explicit PriceLevel(Price price)
         : price_(price) {}
 
@@ -25,11 +27,16 @@ public:
         return orders_.size();
     }
 
-    void add_order(const Order& order) {
+    OrderIterator add_order(const Order& order) {
         if (order.price != price_) {
-            throw std::invalid_argument("Order price does not match price level");
+            throw std::invalid_argument(
+                "Order price does not match PriceLevel price"
+            );
         }
+
         orders_.push_back(order);
+
+        return std::prev(orders_.end());
     }
 
     Order& front() {
@@ -51,6 +58,21 @@ public:
             throw std::out_of_range("PriceLevel is empty");
         }
         orders_.pop_front();
+    }
+
+    void remove_order(OrderIterator it) {
+        orders_.erase(it);
+    }
+
+    bool remove_order(OrderId id) {
+        for (auto it = orders_.begin(); it != orders_.end(); ++it) {
+            if (it->id == id) {
+                orders_.erase(it);
+                return true;
+            }
+        }
+
+        return false;
     }
 
 private:

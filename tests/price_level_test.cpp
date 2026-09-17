@@ -161,3 +161,131 @@ TEST(PriceLevelTest, PopFrontThrowsWhenEmpty) {
 
     EXPECT_THROW(level.pop_front(), std::out_of_range);
 }
+
+TEST(PriceLevelTest, RemovesOrderById) {
+    PriceLevel level{10100};
+
+    Order order_1{
+        .id = 1,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    Order order_2{
+        .id = 2,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 200
+    };
+
+    Order order_3{
+        .id = 3,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 300
+    };
+
+    level.add_order(order_1);
+    level.add_order(order_2);
+    level.add_order(order_3);
+
+    EXPECT_TRUE(level.remove_order(2));
+
+    EXPECT_EQ(level.size(), 2);
+
+    EXPECT_EQ(level.front().id, 1);
+    EXPECT_EQ(level.front().quantity, 100);
+
+    level.pop_front();
+
+    EXPECT_EQ(level.front().id, 3);
+    EXPECT_EQ(level.front().quantity, 300);
+}
+
+TEST(PriceLevelTest, RemoveNonexistentOrderReturnsFalse) {
+    PriceLevel level{10100};
+
+    Order order_1{
+        .id = 1,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    Order order_2{
+        .id = 2,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 200
+    };
+
+    level.add_order(order_1);
+    level.add_order(order_2);
+
+    EXPECT_FALSE(level.remove_order(999));
+
+    // PriceLevel must remain unchanged.
+    EXPECT_EQ(level.size(), 2);
+
+    EXPECT_EQ(level.front().id, 1);
+    EXPECT_EQ(level.front().quantity, 100);
+
+    level.pop_front();
+
+    EXPECT_EQ(level.front().id, 2);
+    EXPECT_EQ(level.front().quantity, 200);
+}
+
+TEST(PriceLevelTest, RemovingLastOrderLeavesLevelEmpty) {
+    PriceLevel level{10100};
+
+    Order order{
+        .id = 1,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    level.add_order(order);
+
+    EXPECT_TRUE(level.remove_order(1));
+
+    EXPECT_TRUE(level.empty());
+    EXPECT_EQ(level.size(), 0);
+}
+
+TEST(PriceLevelTest, RemovesOrderByIterator) {
+    PriceLevel level{10100};
+
+    Order order_1{
+        .id = 1,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    Order order_2{
+        .id = 2,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 200
+    };
+
+    auto it_1 = level.add_order(order_1);
+    auto it_2 = level.add_order(order_2);
+
+    level.remove_order(it_1);
+
+    EXPECT_EQ(level.size(), 1);
+    EXPECT_EQ(level.front().id, 2);
+    EXPECT_EQ(level.front().quantity, 200);
+}

@@ -60,11 +60,7 @@ public:
                 resting.quantity -= matched_quantity;
 
                 if (resting.quantity == 0) {
-                    level->pop_front();
-
-                    if (level->empty()) {
-                        book_.remove_best_ask_level();
-                    }
+                    book_.remove_best_ask_order();
                 }
             }
 
@@ -107,10 +103,7 @@ public:
             resting.quantity -= matched_quantity;
 
             if (resting.quantity == 0) {
-                level->pop_front();
-                if (level->empty()) {
-                    book_.remove_best_bid_level();
-                }
+                book_.remove_best_bid_order();
             }
         }
 

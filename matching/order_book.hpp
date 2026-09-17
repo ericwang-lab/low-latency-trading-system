@@ -4,6 +4,7 @@
 #include <map>
 #include <optional>
 #include <stdexcept>
+#include <unordered_map>
 
 #include "matching/order.hpp"
 #include "matching/price_level.hpp"
@@ -13,7 +14,7 @@ namespace trading {
 class OrderBook {
 public:
     void add_order(const Order& order) {
-         if (order.type != OrderType::Limit) {
+        if (order.type != OrderType::Limit) {
             throw std::invalid_argument(
                 "OrderBook only accepts limit orders"
             );
@@ -31,13 +32,26 @@ public:
             );
         }
 
+        if (order_index_.find(order.id) != order_index_.end()) {
+            throw std::invalid_argument(
+                "Order id already exists"
+            );
+        }
+
         if (order.side == Side::Buy) {
             auto result = bids_.try_emplace(
                 order.price,
                 order.price
             );
 
-            result.first->second.add_order(order);
+            auto order_it = result.first->second.add_order(order);
+
+            order_index_[order.id] = OrderLocation{
+                .side = order.side,
+                .price = order.price,
+                .order_it = order_it
+            };
+
             return;
         }
 
@@ -46,7 +60,13 @@ public:
             order.price
         );
 
-        result.first->second.add_order(order);
+        auto order_it = result.first->second.add_order(order);
+
+        order_index_[order.id] = OrderLocation{
+            .side = order.side,
+            .price = order.price,
+            .order_it = order_it
+        };
     }
 
     const PriceLevel* find_bid_level(Price price) const {
@@ -104,22 +124,107 @@ public:
         return &bids_.begin()->second;
     }
 
-    void remove_best_ask_level() {
-        if (!asks_.empty()) {
-            asks_.erase(asks_.begin());
+    bool cancel_order(OrderId id) {
+        auto index_it = order_index_.find(id);
+
+        if (index_it == order_index_.end()) {
+            return false;
+        }
+
+        const Side side = index_it->second.side;
+        const Price price = index_it->second.price;
+        const auto order_it = index_it->second.order_it;
+
+        if (side == Side::Buy) {
+            auto level_it = bids_.find(price);
+
+            if (level_it == bids_.end()) {
+                return false;
+            }
+
+            PriceLevel& level = level_it->second;
+
+            level.remove_order(order_it);
+            order_index_.erase(index_it);
+
+            if (level.empty()) {
+                bids_.erase(level_it);
+            }
+
+            return true;
+        }
+
+        auto level_it = asks_.find(price);
+
+        if (level_it == asks_.end()) {
+            return false;
+        }
+
+        PriceLevel& level = level_it->second;
+
+        level.remove_order(order_it);
+        order_index_.erase(index_it);
+
+        if (level.empty()) {
+            asks_.erase(level_it);
+        }
+
+        return true;
+    }
+
+    void remove_best_ask_order() {
+        if (asks_.empty()) {
+            return;
+        }
+
+        auto level_it = asks_.begin();
+        PriceLevel& level = level_it->second;
+
+        if (level.empty()) {
+            return;
+        }
+
+        const OrderId id = level.front().id;
+
+        order_index_.erase(id);
+        level.pop_front();
+
+        if (level.empty()) {
+            asks_.erase(level_it);
         }
     }
 
-    void remove_best_bid_level() {
-        if (!bids_.empty()) {
-            bids_.erase(bids_.begin());
+    void remove_best_bid_order() {
+        if (bids_.empty()) {
+            return;
+        }
+
+        auto level_it = bids_.begin();
+        PriceLevel& level = level_it->second;
+
+        if (level.empty()) {
+            return;
+        }
+
+        const OrderId id = level.front().id;
+
+        order_index_.erase(id);
+        level.pop_front();
+
+        if (level.empty()) {
+            bids_.erase(level_it);
         }
     }
-
 
 private:
     std::map<Price, PriceLevel, std::greater<Price>> bids_;
     std::map<Price, PriceLevel, std::less<Price>> asks_;
+    struct OrderLocation {
+        Side side;
+        Price price;
+        PriceLevel::OrderIterator order_it;
+    };
+    std::unordered_map<OrderId, OrderLocation> order_index_;
 };
 
 } // namespace trading
