@@ -236,3 +236,26 @@ between resting orders and index entries.
 
 An OrderId may be reused after the previous resting order has left the book,
 either through cancellation or a full fill.
+
+## Order modification and priority
+
+Order modification follows price-time priority semantics.
+
+A quantity decrease at the same price is performed in place and preserves
+the order's FIFO priority.
+
+A no-op modification (same price and quantity) also preserves priority.
+
+A quantity increase or price change is treated as cancel-and-replace.
+The original order is removed and the replacement is inserted at the back
+of the appropriate price level, causing it to lose its previous FIFO
+priority.
+
+Order modification uses the OrderId index to locate resting orders directly.
+
+All replacement parameters are validated before the OrderBook is mutated.
+This prevents an invalid replacement from cancelling the original order
+before an exception is raised.
+
+Order references and iterators obtained before cancel_order() must not be
+used after cancellation because removal invalidates them.

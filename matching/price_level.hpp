@@ -12,6 +12,16 @@ namespace trading {
 class PriceLevel {
 public:
     using OrderIterator = std::list<Order>::iterator;
+    using ConstOrderIterator = std::list<Order>::const_iterator;
+
+    ConstOrderIterator begin() const {
+        return orders_.begin();
+    }
+
+    ConstOrderIterator end() const {
+        return orders_.end();
+    }
+
     explicit PriceLevel(Price price)
         : price_(price) {}
 

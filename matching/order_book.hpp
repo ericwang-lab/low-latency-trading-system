@@ -216,6 +216,65 @@ public:
         }
     }
 
+    bool modify_order(
+        OrderId id,
+        Price new_price,
+        Quantity new_quantity
+    ) {
+        auto index_it = order_index_.find(id);
+
+        if (index_it == order_index_.end()) {
+            return false;
+        }
+
+        // Validate everything before modifying the book.
+        if (new_price <= 0) {
+            throw std::invalid_argument(
+                "Limit order price must be greater than zero"
+            );
+        }
+
+        if (new_quantity == 0) {
+            throw std::invalid_argument(
+                "Order quantity must be greater than zero"
+            );
+        }
+
+        OrderLocation& location = index_it->second;
+        Order& order = *location.order_it;
+
+        // Same price + quantity decrease:
+        // modify in place and preserve FIFO priority.
+        if (new_price == order.price &&
+            new_quantity < order.quantity) {
+            order.quantity = new_quantity;
+            return true;
+        }
+
+        // Same price + same quantity:
+        // no-op, preserve FIFO priority.
+        if (new_price == order.price &&
+            new_quantity == order.quantity) {
+            return true;
+        }
+
+        // Quantity increase OR price change:
+        // cancel + replace, losing FIFO priority.
+
+        // Copy BEFORE cancel_order(), because cancel invalidates
+        // the old iterator/reference.
+        Order replacement = order;
+
+        replacement.price = new_price;
+        replacement.quantity = new_quantity;
+
+        cancel_order(id);
+
+        add_order(replacement);
+
+        return true;
+    }
+
 private:
     std::map<Price, PriceLevel, std::greater<Price>> bids_;
     std::map<Price, PriceLevel, std::less<Price>> asks_;
