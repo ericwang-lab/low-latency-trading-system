@@ -289,3 +289,43 @@ TEST(PriceLevelTest, RemovesOrderByIterator) {
     EXPECT_EQ(level.front().id, 2);
     EXPECT_EQ(level.front().quantity, 200);
 }
+
+TEST(PriceLevelTest, ReportsTotalQuantity) {
+    PriceLevel level{10100};
+
+    Order order_1{
+        .id = 1,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    Order order_2{
+        .id = 2,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 250
+    };
+
+    Order order_3{
+        .id = 3,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 150
+    };
+
+    level.add_order(order_1);
+    level.add_order(order_2);
+    level.add_order(order_3);
+
+    EXPECT_EQ(level.total_quantity(), 500);
+}
+
+TEST(PriceLevelTest, EmptyLevelHasZeroTotalQuantity) {
+    PriceLevel level{10100};
+
+    EXPECT_EQ(level.total_quantity(), 0);
+}

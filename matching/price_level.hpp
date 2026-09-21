@@ -85,6 +85,16 @@ public:
         return false;
     }
 
+    Quantity total_quantity() const {
+        Quantity total = 0;
+
+        for (const auto& order : orders_) {
+            total += order.quantity;
+        }
+
+        return total;
+    }
+
 private:
     Price price_;
     std::list<Order> orders_;

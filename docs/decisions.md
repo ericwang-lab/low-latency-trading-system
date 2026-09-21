@@ -259,3 +259,30 @@ before an exception is raised.
 
 Order references and iterators obtained before cancel_order() must not be
 used after cancellation because removal invalidates them.
+
+## Market depth and book snapshots
+
+Market depth is aggregated by price level.
+
+Each DepthLevel contains:
+- price
+- total resting quantity at that price
+
+Bid depth is returned from best to worst:
+highest price to lowest price.
+
+Ask depth is returned from best to worst:
+lowest price to highest price.
+
+Top-N depth limits the number of price levels returned,
+not the number of individual orders.
+
+PriceLevel::total_quantity() is currently calculated from
+the resting orders rather than maintained as cached state.
+This keeps orders_ as the single source of truth and avoids
+additional synchronization invariants during cancellation,
+modification, and matching.
+
+BookSnapshot is a value snapshot containing copies of bid
+and ask depth. Changes to the OrderBook after snapshot creation
+do not modify previously created snapshots.

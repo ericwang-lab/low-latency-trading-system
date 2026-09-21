@@ -4,15 +4,79 @@
 #include <map>
 #include <optional>
 #include <stdexcept>
+#include <vector>
 #include <unordered_map>
 
 #include "matching/order.hpp"
 #include "matching/price_level.hpp"
 
 namespace trading {
+struct DepthLevel {
+    Price price;
+    Quantity quantity;
+};
+
+struct BookSnapshot {
+    std::vector<DepthLevel> bids;
+    std::vector<DepthLevel> asks;
+};
 
 class OrderBook {
 public:
+
+    std::vector<DepthLevel> bid_depth(std::size_t max_levels) const {
+        std::vector<DepthLevel> depth;
+
+        for (const auto& [price, level] : bids_) {
+            if (depth.size() >= max_levels) {
+                break;
+            }
+
+            depth.push_back(
+                DepthLevel{
+                    .price = price,
+                    .quantity = level.total_quantity()
+                }
+            );
+        }
+
+        return depth;
+    }
+
+    std::vector<DepthLevel> bid_depth() const {
+        return bid_depth(bids_.size());
+    }
+
+    std::vector<DepthLevel> ask_depth(std::size_t max_levels) const {
+        std::vector<DepthLevel> depth;
+
+        for (const auto& [price, level] : asks_) {
+            if (depth.size() >= max_levels) {
+                break;
+            }
+
+            depth.push_back(
+                DepthLevel{
+                    .price = price,
+                    .quantity = level.total_quantity()
+                }
+            );
+        }
+
+        return depth;
+    }
+
+    std::vector<DepthLevel> ask_depth() const {
+        return ask_depth(asks_.size());
+    }
+
+    BookSnapshot snapshot(std::size_t max_levels) const {
+        return BookSnapshot{
+            .bids = bid_depth(max_levels),
+            .asks = ask_depth(max_levels)
+        };
+    }
+
     void add_order(const Order& order) {
         if (order.type != OrderType::Limit) {
             throw std::invalid_argument(

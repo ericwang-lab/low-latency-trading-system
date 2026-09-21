@@ -1715,3 +1715,102 @@ TEST(MatchingEngineTest, AllowsReusingOrderIdAfterRestingOrderIsFullyFilled) {
     EXPECT_EQ(level->front().id, 42);
     EXPECT_EQ(level->front().quantity, 200);
 }
+
+TEST(MatchingEngineTest, AskDepthUpdatesAfterPartialFill) {
+    OrderBook book;
+
+    Order resting_sell_1{
+        .id = 1,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 300
+    };
+
+    Order resting_sell_2{
+        .id = 2,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10150,
+        .quantity = 200
+    };
+
+    book.add_order(resting_sell_1);
+    book.add_order(resting_sell_2);
+
+    MatchingEngine engine{book};
+
+    Order incoming_buy{
+        .id = 3,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 150
+    };
+
+    const auto result = engine.process(incoming_buy);
+
+    ASSERT_EQ(result.trades.size(), 1);
+    EXPECT_EQ(result.order.quantity, 0);
+
+    const auto depth = book.ask_depth();
+
+    ASSERT_EQ(depth.size(), 2);
+
+    EXPECT_EQ(depth[0].price, 10100);
+    EXPECT_EQ(depth[0].quantity, 150);
+
+    EXPECT_EQ(depth[1].price, 10150);
+    EXPECT_EQ(depth[1].quantity, 200);
+}
+
+TEST(MatchingEngineTest, AskDepthRemovesLevelAfterFullFill) {
+    OrderBook book;
+
+    Order resting_sell_1{
+        .id = 1,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 150
+    };
+
+    Order resting_sell_2{
+        .id = 2,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10150,
+        .quantity = 200
+    };
+
+    book.add_order(resting_sell_1);
+    book.add_order(resting_sell_2);
+
+    MatchingEngine engine{book};
+
+    Order incoming_buy{
+        .id = 3,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 150
+    };
+
+    const auto result = engine.process(incoming_buy);
+
+    ASSERT_EQ(result.trades.size(), 1);
+    EXPECT_EQ(result.order.quantity, 0);
+
+    const auto depth = book.ask_depth();
+
+    ASSERT_EQ(depth.size(), 1);
+
+    EXPECT_EQ(depth[0].price, 10150);
+    EXPECT_EQ(depth[0].quantity, 200);
+
+    // Fully consumed price level must no longer exist.
+    EXPECT_EQ(book.find_ask_level(10100), nullptr);
+
+    ASSERT_TRUE(book.best_ask().has_value());
+    EXPECT_EQ(book.best_ask().value(), 10150);
+}
