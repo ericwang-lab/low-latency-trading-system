@@ -357,7 +357,11 @@ TEST(OrderBookTest, CancelNonexistentOrderReturnsFalse) {
 
     book.add_order(order);
 
+    ASSERT_TRUE(book.validate_invariants());
+
     EXPECT_FALSE(book.cancel_order(999));
+
+    EXPECT_TRUE(book.validate_invariants());
 
     ASSERT_TRUE(book.best_bid().has_value());
     EXPECT_EQ(book.best_bid().value(), 10100);
@@ -390,11 +394,13 @@ TEST(OrderBookTest, RejectsDuplicateOrderId) {
     };
 
     book.add_order(order_1);
+    ASSERT_TRUE(book.validate_invariants());
 
     EXPECT_THROW(
         book.add_order(order_2),
         std::invalid_argument
     );
+    EXPECT_TRUE(book.validate_invariants());
 
     // Original order must remain untouched.
     EXPECT_EQ(book.find_bid_level(10200), nullptr);
@@ -404,6 +410,7 @@ TEST(OrderBookTest, RejectsDuplicateOrderId) {
     ASSERT_NE(level, nullptr);
     EXPECT_EQ(level->size(), 1);
     EXPECT_EQ(level->front().id, 42);
+    EXPECT_EQ(level->front().price, 10100);
     EXPECT_EQ(level->front().quantity, 100);
 
     EXPECT_EQ(book.best_bid().value(), 10100);
@@ -795,6 +802,7 @@ TEST(OrderBookTest, RejectsModifyToZeroQuantity) {
     };
 
     book.add_order(order);
+    ASSERT_TRUE(book.validate_invariants());
 
     EXPECT_THROW(
         book.modify_order(
@@ -804,6 +812,7 @@ TEST(OrderBookTest, RejectsModifyToZeroQuantity) {
         ),
         std::invalid_argument
     );
+    EXPECT_TRUE(book.validate_invariants());
 
     // Failed modification must not change the existing order.
     const PriceLevel* level = book.find_bid_level(10100);
@@ -831,6 +840,7 @@ TEST(OrderBookTest, RejectsModifyToInvalidPriceWithoutChangingOrder) {
     };
 
     book.add_order(order);
+    ASSERT_TRUE(book.validate_invariants());
 
     EXPECT_THROW(
         book.modify_order(
@@ -1518,4 +1528,129 @@ TEST(OrderBookTest, SnapshotRemainsUnchangedAfterBookModification) {
 
     EXPECT_EQ(snapshot_after.bids[0].price, 10000);
     EXPECT_EQ(snapshot_after.bids[0].quantity, 50);
+}
+
+TEST(OrderBookTest, ValidBookSatisfiesInvariants) {
+    OrderBook book;
+
+    Order bid_1{
+        .id = 1,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    Order bid_2{
+        .id = 2,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10050,
+        .quantity = 200
+    };
+
+    Order ask_1{
+        .id = 3,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10150,
+        .quantity = 300
+    };
+
+    Order ask_2{
+        .id = 4,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10200,
+        .quantity = 400
+    };
+
+    book.add_order(bid_1);
+    book.add_order(bid_2);
+    book.add_order(ask_1);
+    book.add_order(ask_2);
+
+    EXPECT_TRUE(book.validate_invariants());
+}
+
+TEST(OrderBookTest, InvariantsHoldAfterCancellation) {
+    OrderBook book;
+
+    Order order_1{
+        .id = 1,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    Order order_2{
+        .id = 2,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 200
+    };
+
+    Order order_3{
+        .id = 3,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10200,
+        .quantity = 300
+    };
+
+    book.add_order(order_1);
+    book.add_order(order_2);
+    book.add_order(order_3);
+
+    ASSERT_TRUE(book.validate_invariants());
+
+    ASSERT_TRUE(book.cancel_order(1));
+
+    EXPECT_TRUE(book.validate_invariants());
+}
+
+TEST(OrderBookTest, InvariantsHoldAfterPriceChangingModification) {
+    OrderBook book;
+
+    Order order_1{
+        .id = 1,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    Order order_2{
+        .id = 2,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10050,
+        .quantity = 200
+    };
+
+    Order order_3{
+        .id = 3,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10200,
+        .quantity = 300
+    };
+
+    book.add_order(order_1);
+    book.add_order(order_2);
+    book.add_order(order_3);
+
+    ASSERT_TRUE(book.validate_invariants());
+
+    ASSERT_TRUE(
+        book.modify_order(
+            1,
+            10050,
+            150
+        )
+    );
+
+    EXPECT_TRUE(book.validate_invariants());
 }

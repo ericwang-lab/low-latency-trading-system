@@ -339,6 +339,108 @@ public:
         return true;
     }
 
+    bool validate_invariants() const {
+        std::size_t resting_order_count = 0;
+
+        // Validate bids.
+        for (const auto& [price, level] : bids_) {
+            if (level.price() != price) {
+                return false;
+            }
+            if (level.empty()) {
+                return false;
+            }
+
+            for (auto it = level.begin(); it != level.end(); ++it) {
+                const Order& order = *it;
+
+                if (order.side != Side::Buy) {
+                    return false;
+                }
+
+                if (order.price != price) {
+                    return false;
+                }
+
+                auto index_it = order_index_.find(order.id);
+
+                if (index_it == order_index_.end()) {
+                    return false;
+                }
+
+                const OrderLocation& location = index_it->second;
+
+                if (location.side != Side::Buy) {
+                    return false;
+                }
+
+                if (location.price != price) {
+                    return false;
+                }
+
+                const Order* indexed_order = &(*location.order_it);
+
+                if (indexed_order != &order) {
+                    return false;
+                }
+
+                ++resting_order_count;
+            }
+        }
+
+        // Validate asks.
+        for (const auto& [price, level] : asks_) {
+            if (level.price() != price) {
+                return false;
+            }
+            if (level.empty()) {
+                return false;
+            }
+
+            for (auto it = level.begin(); it != level.end(); ++it) {
+                const Order& order = *it;
+
+                if (order.side != Side::Sell) {
+                    return false;
+                }
+
+                if (order.price != price) {
+                    return false;
+                }
+
+                auto index_it = order_index_.find(order.id);
+
+                if (index_it == order_index_.end()) {
+                    return false;
+                }
+
+                const OrderLocation& location = index_it->second;
+
+                if (location.side != Side::Sell) {
+                    return false;
+                }
+
+                if (location.price != price) {
+                    return false;
+                }
+
+                const Order* indexed_order = &(*location.order_it);
+
+                if (indexed_order != &order) {
+                    return false;
+                }
+
+                ++resting_order_count;
+            }
+        }
+
+        // No stale or extra entries may exist in the index.
+        if (resting_order_count != order_index_.size()) {
+            return false;
+        }
+
+        return true;
+    }
 private:
     std::map<Price, PriceLevel, std::greater<Price>> bids_;
     std::map<Price, PriceLevel, std::less<Price>> asks_;

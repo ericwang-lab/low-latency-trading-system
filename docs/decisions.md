@@ -286,3 +286,89 @@ modification, and matching.
 BookSnapshot is a value snapshot containing copies of bid
 and ask depth. Changes to the OrderBook after snapshot creation
 do not modify previously created snapshots.
+
+## Order book invariant validation
+
+`OrderBook` provides `validate_invariants()` to verify structural consistency
+between price-level storage and the secondary OrderId index.
+
+The invariant checker verifies that:
+
+- stored price levels are not empty;
+- each map key matches `PriceLevel::price()`;
+- each resting order's price matches its containing price level;
+- bid levels contain only buy orders;
+- ask levels contain only sell orders;
+- every resting order has a corresponding entry in the OrderId index;
+- each index entry records the correct side and price;
+- each indexed iterator points to the exact `Order` object stored in its
+  `PriceLevel`;
+- the number of resting orders matches the number of index entries, preventing
+  stale extra index entries.
+
+Tests validate these invariants after successful mutations including
+cancellation, modification, partial fills, full fills, and matching across
+multiple price levels.
+
+The invariants are also checked after rejected operations such as duplicate
+OrderId insertion, invalid modification, and cancellation of a nonexistent
+order. A rejected operation must leave the existing OrderBook structurally
+valid.
+
+Reason:
+
+The OrderBook maintains the same logical state across multiple data structures:
+ordered price-level maps, FIFO order lists, and the secondary OrderId index.
+A mutation that updates only part of this state can leave stale iterators or
+inconsistent metadata even when externally visible behavior initially appears
+correct.
+
+Explicit invariant validation makes these synchronization requirements
+testable.
+
+Trade-off:
+
+`validate_invariants()` is intended as a correctness and debugging mechanism,
+not as part of the latency-sensitive matching path.
+
+The checker also assumes that iterators stored in the OrderId index are valid.
+A dangling C++ iterator cannot safely be validated by dereferencing it because
+doing so is itself undefined behavior. Memory-safety errors are therefore
+handled separately using sanitizers.
+
+
+## Sanitizer-enabled test builds
+
+The build system provides an optional `ENABLE_SANITIZERS` configuration for
+development and correctness testing.
+
+When enabled, the test executable is compiled and linked with:
+
+    -fsanitize=address,undefined
+    -fno-omit-frame-pointer
+
+Sanitizer-enabled builds use a separate build directory, such as
+`build-sanitize`, so that normal development and future performance builds are
+not affected.
+
+AddressSanitizer is used to detect memory-safety errors such as use-after-free
+and out-of-bounds memory access.
+
+UndefinedBehaviorSanitizer is used to detect supported forms of undefined
+behavior during test execution.
+
+Reason:
+
+Structural invariant checking cannot safely detect every class of C++ memory
+error. In particular, dereferencing a dangling iterator is already undefined
+behavior. Sanitizers complement unit tests and `validate_invariants()` by
+detecting runtime memory and undefined-behavior violations.
+
+Trade-off:
+
+Sanitizer instrumentation adds substantial runtime and memory overhead and
+changes the performance characteristics of the program.
+
+Sanitizer-enabled builds must therefore not be used for latency benchmarks or
+performance conclusions. Performance measurements will use a separate
+optimized build without sanitizer instrumentation.

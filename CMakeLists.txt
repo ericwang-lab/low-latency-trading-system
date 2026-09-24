@@ -6,6 +6,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+option(ENABLE_SANITIZERS
+    "Enable AddressSanitizer and UndefinedBehaviorSanitizer"
+    OFF
+)
+
 include(FetchContent)
 
 FetchContent_Declare(
@@ -36,10 +41,20 @@ target_compile_options(matching_tests PRIVATE
     -Wshadow
 )
 
+if(ENABLE_SANITIZERS)
+    target_compile_options(matching_tests PRIVATE
+        -fsanitize=address,undefined
+        -fno-omit-frame-pointer
+    )
+
+    target_link_options(matching_tests PRIVATE
+        -fsanitize=address,undefined
+    )
+endif()
+
 target_link_libraries(matching_tests PRIVATE
     GTest::gtest_main
 )
 
 include(GoogleTest)
-
 gtest_discover_tests(matching_tests)

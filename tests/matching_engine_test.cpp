@@ -1814,3 +1814,93 @@ TEST(MatchingEngineTest, AskDepthRemovesLevelAfterFullFill) {
     ASSERT_TRUE(book.best_ask().has_value());
     EXPECT_EQ(book.best_ask().value(), 10150);
 }
+
+TEST(MatchingEngineTest, InvariantsHoldAfterPartialFill) {
+    OrderBook book;
+
+    Order resting_sell{
+        .id = 1,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 300
+    };
+
+    book.add_order(resting_sell);
+
+    ASSERT_TRUE(book.validate_invariants());
+
+    MatchingEngine engine{book};
+
+    Order incoming_buy{
+        .id = 2,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    const auto result = engine.process(incoming_buy);
+
+    ASSERT_EQ(result.trades.size(), 1);
+    EXPECT_EQ(result.order.quantity, 0);
+
+    EXPECT_TRUE(book.validate_invariants());
+}
+
+TEST(MatchingEngineTest, InvariantsHoldAfterSweepingMultiplePriceLevels) {
+    OrderBook book;
+
+    Order sell_1{
+        .id = 1,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10100,
+        .quantity = 100
+    };
+
+    Order sell_2{
+        .id = 2,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10200,
+        .quantity = 200
+    };
+
+    Order sell_3{
+        .id = 3,
+        .side = Side::Sell,
+        .type = OrderType::Limit,
+        .price = 10300,
+        .quantity = 300
+    };
+
+    book.add_order(sell_1);
+    book.add_order(sell_2);
+    book.add_order(sell_3);
+
+    ASSERT_TRUE(book.validate_invariants());
+
+    MatchingEngine engine{book};
+
+    Order incoming_buy{
+        .id = 4,
+        .side = Side::Buy,
+        .type = OrderType::Limit,
+        .price = 10300,
+        .quantity = 400
+    };
+
+    const auto result = engine.process(incoming_buy);
+
+    ASSERT_EQ(result.trades.size(), 3);
+    EXPECT_EQ(result.order.quantity, 0);
+
+    EXPECT_TRUE(book.validate_invariants());
+
+    const auto depth = book.ask_depth();
+
+    ASSERT_EQ(depth.size(), 1);
+    EXPECT_EQ(depth[0].price, 10300);
+    EXPECT_EQ(depth[0].quantity, 200);
+}
