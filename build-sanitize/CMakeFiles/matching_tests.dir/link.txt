@@ -1,1 +1,0 @@
-/usr/bin/c++ -g -fsanitize=address,undefined CMakeFiles/matching_tests.dir/tests/order_test.cpp.o CMakeFiles/matching_tests.dir/tests/price_level_test.cpp.o CMakeFiles/matching_tests.dir/tests/order_book_test.cpp.o CMakeFiles/matching_tests.dir/tests/matching_engine_test.cpp.o -o matching_tests  lib/libgtest_main.a lib/libgtest.a -lpthread
