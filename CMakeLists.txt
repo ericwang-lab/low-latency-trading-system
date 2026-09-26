@@ -41,6 +41,22 @@ target_compile_options(matching_tests PRIVATE
     -Wshadow
 )
 
+add_executable(matching_benchmark
+    benchmarks/matching_engine_benchmark.cpp
+)
+
+target_include_directories(matching_benchmark PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_compile_options(matching_benchmark PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+    -Wconversion
+    -Wshadow
+)
+
 if(ENABLE_SANITIZERS)
     target_compile_options(matching_tests PRIVATE
         -fsanitize=address,undefined

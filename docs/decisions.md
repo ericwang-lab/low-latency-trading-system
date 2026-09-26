@@ -372,3 +372,73 @@ changes the performance characteristics of the program.
 Sanitizer-enabled builds must therefore not be used for latency benchmarks or
 performance conclusions. Performance measurements will use a separate
 optimized build without sanitizer instrumentation.
+
+## Performance benchmarking methodology
+
+Performance benchmarks are built separately from the normal test configuration
+using an optimized Release build.
+
+The benchmark build is configured with compiler optimization enabled. The
+current GCC Release configuration uses `-O3` and `-DNDEBUG`.
+
+Benchmarks use `std::chrono::steady_clock` and measure operations in batches
+rather than placing clock calls around every individual operation.
+
+Reason:
+
+The matching and order-book operations being measured can complete on the
+order of tens or hundreds of nanoseconds. Calling the clock around every
+individual operation would therefore introduce measurement overhead that is
+large relative to the operation itself.
+
+Each workload currently performs:
+
+- 100,000 warm-up iterations;
+- 1,000,000 measured iterations per run;
+- 10 measured runs.
+
+The benchmark reports minimum, median, mean, and maximum batch-average
+nanoseconds per iteration.
+
+The median is used as the primary comparison value when comparing changes,
+while the complete distribution across runs is retained to expose measurement
+variance.
+
+Benchmark workloads produce checksums derived from observable matching or
+order-book results.
+
+Reason:
+
+An optimized compiler may eliminate benchmark work whose results are unused.
+Checksums make workload results observable and also provide a basic correctness
+check that the expected matching behavior occurred during the benchmark.
+
+The current benchmark suite contains representative workloads for:
+
+- inserting and cancelling a resting limit order;
+- setting up resting liquidity and fully matching an incoming order;
+- sweeping an incoming order across three price levels.
+
+The reported `ns/iteration` values represent the complete workload defined by
+each benchmark. They must not be interpreted as isolated
+`MatchingEngine::process()` latency or as per-order percentile latency.
+
+In particular, setup, cleanup, order-book maintenance, trade-result generation,
+checksum observation, and loop overhead may be included depending on the
+workload.
+
+The current benchmark harness measures batch-average throughput cost. It does
+not currently measure p50, p95, p99, p99.9, or maximum per-order latency.
+
+Benchmark results are intended primarily for before/after comparisons under
+the same build and machine environment. Absolute numbers may vary because of
+CPU scheduling, frequency scaling, cache state, allocator behavior, system
+load, and other environmental effects.
+
+More rigorous latency measurements may later introduce CPU affinity, tighter
+environment control, allocation analysis, profiling, and per-operation latency
+distributions.
+
+The optimization process remains:
+
+Correct -> Measure -> Profile -> Optimize -> Measure again

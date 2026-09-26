@@ -1,5 +1,6 @@
 build/
 build-sanitize/
+build-release/
 .vscode/
 .idea/
 *.o
