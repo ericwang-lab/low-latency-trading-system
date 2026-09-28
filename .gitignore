@@ -1,9 +1,12 @@
 build/
 build-sanitize/
 build-release/
+build-profile/
 .vscode/
 .idea/
 *.o
 *.out
 .DS_Store
 Testing/
+# Linux perf profiling output
+perf*.data

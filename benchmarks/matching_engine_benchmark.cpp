@@ -281,7 +281,7 @@ void run_benchmark(
 
 } // namespace
 
-int main() {
+int main(int argc, char* argv[]) {
     std::cout
         << "Warm-up iterations: "
         << kWarmupIterations
@@ -297,26 +297,50 @@ int main() {
         << kRuns
         << '\n';
 
-    run_benchmark(
-        "RestingLimit + Cancel",
-        resting_limit_cancel,
-        1'000'000'000ULL,
-        10'000'000'000ULL
-    );
+    const std::string_view selected =
+        (argc >= 2) ? std::string_view{argv[1]} : "all";
 
-    run_benchmark(
-        "RestingSellSetup + FullMatch",
-        full_match,
-        1'010'100'000ULL,
-        10'101'000'000ULL
-    );
+    if (selected == "all" || selected == "cancel") {
+        run_benchmark(
+            "RestingLimit + Cancel",
+            resting_limit_cancel,
+            1'000'000'000ULL,
+            10'000'000'000ULL
+        );
+    }
 
-    run_benchmark(
-        "ThreeLevelSetup + MultiLevelSweep",
-        multi_level_sweep,
-        3'060'300'000ULL,
-        30'603'000'000ULL
-    );
+    if (selected == "all" || selected == "full-match") {
+        run_benchmark(
+            "RestingSellSetup + FullMatch",
+            full_match,
+            1'010'100'000ULL,
+            10'101'000'000ULL
+        );
+    }
+
+    if (selected == "all" || selected == "sweep") {
+        run_benchmark(
+            "ThreeLevelSetup + MultiLevelSweep",
+            multi_level_sweep,
+            3'060'300'000ULL,
+            30'603'000'000ULL
+        );
+    }
+
+    if (selected != "all" &&
+        selected != "cancel" &&
+        selected != "full-match" &&
+        selected != "sweep") {
+        std::cerr
+            << "Unknown workload: "
+            << selected
+            << '\n'
+            << "Usage: "
+            << argv[0]
+            << " [all|cancel|full-match|sweep]\n";
+
+        return 1;
+    }
 
     return 0;
 }

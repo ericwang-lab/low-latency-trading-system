@@ -442,3 +442,86 @@ distributions.
 The optimization process remains:
 
 Correct -> Measure -> Profile -> Optimize -> Measure again
+
+cat >> decisions.md <<'EOF'
+
+## Performance profiling findings
+
+Performance profiling is performed on the optimized benchmark build with debug
+symbols retained so that sampled instruction addresses can be attributed to
+source-level functions.
+
+Linux `perf stat` is used to collect hardware-counter measurements including:
+
+- CPU cycles;
+- retired instructions;
+- branches;
+- branch misses.
+
+`perf record` and `perf report` are used to identify sampled hot functions and
+allocation-related costs.
+
+Profiling the three-price-level sweep workload showed that
+`MatchingEngine::process()` is a major sampled hotspot. Significant sampled
+cost was also observed in dynamic allocation and deallocation paths, including
+`malloc`, `free`, and related allocator functions.
+
+The initial trade-result implementation constructs an empty
+`std::vector<Trade>` for each processed order. Profiling showed
+`std::vector<Trade>::_M_realloc_insert` in the sweep workload, indicating that
+growth of the trade-result vector contributed measurable work on the matching
+path.
+
+`MatchingEngine::process()` now reserves capacity for one trade before
+matching:
+
+    trades.reserve(1);
+
+This is a deliberately conservative optimization. A single trade is a common
+case, while orders that cross multiple price levels are still allowed to grow
+the vector dynamically.
+
+As a diagnostic experiment, the benchmark was also profiled with capacity for
+three trades reserved in advance. The sweep workload generates exactly three
+trades per iteration, and the vector reallocation hotspot disappeared from the
+profile when this capacity was reserved.
+
+The value three is specific to that benchmark workload and is not an invariant
+of the matching engine. Reserving three trades was therefore used only to test
+the allocation hypothesis and was not retained in the production
+implementation.
+
+After eliminating trade-vector growth for the diagnostic workload, allocator
+functions remained significant sampled hotspots. This indicates that trade
+result storage is not the only source of dynamic allocation.
+
+The current OrderBook intentionally uses node-based standard-library
+containers:
+
+- `std::map` for price levels;
+- `std::list<Order>` for FIFO orders within a price level;
+- `std::unordered_map` for the OrderId lookup index.
+
+The multi-level sweep repeatedly creates resting orders at distinct price
+levels and then fully removes them. This causes repeated creation and
+destruction of map, list, and hash-table nodes.
+
+These structures provide useful correctness properties, especially ordered
+best-price access and stable `std::list` iterators for the OrderId index, but
+profiling now provides evidence that their allocation behavior is relevant to
+performance.
+
+No container redesign or custom allocator is introduced yet. Replacing these
+structures affects iterator stability, cancellation, FIFO semantics, indexing,
+and ownership, so such changes require dedicated benchmarks and correctness
+validation rather than speculative optimization.
+
+The profiling process therefore follows the same optimization discipline as
+the benchmark methodology:
+
+Correct -> Measure -> Profile -> Form hypothesis -> Experiment -> Measure again
+
+Experimental changes that validate a hypothesis are not retained unless they
+represent a justified production design rather than a benchmark-specific
+optimization.
+EOF
