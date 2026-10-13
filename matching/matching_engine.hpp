@@ -29,7 +29,6 @@ public:
         }
 
         std::vector<Trade> trades;
-        trades.reserve(1);
 
         if (order.side == Side::Buy) {
            while (order.quantity > 0) {

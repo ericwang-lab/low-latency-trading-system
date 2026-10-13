@@ -525,3 +525,69 @@ Experimental changes that validate a hypothesis are not retained unless they
 represent a justified production design rather than a benchmark-specific
 optimization.
 EOF
+
+A standalone benchmark counts heap allocations and deallocations using
+global operator new and operator delete.
+
+The OrderId index is preallocated using reserve_order_capacity(100)
+to avoid hash-table rehashing during measurement.
+
+Results:
+
+Operation
+
+Allocations
+
+Deallocations
+
+Insert
+
+3
+
+0
+
+Cancel
+
+0
+
+3
+
+Full match
+
+1
+
+3
+
+Findings:
+
+Inserting at a new price level allocates nodes for std::map, std::list, and std::unordered_map.
+
+Cancelling the last order at a price level releases all three nodes.
+
+Full matching allocates memory for the std::vector<Trade> result.
+
+reserve() avoids observed rehash-related allocations but does not eliminate per-order node allocations.
+
+Trade-off:
+
+Node-based containers provide simple FIFO ordering and stable iterators,
+but repeated allocations may increase latency and latency variance.
+
+Allocation counts do not directly measure execution latency.
+
+Future optimizations will investigate reusable trade buffers and memory pools,
+with performance improvements verified through benchmarks.
+
+Compared std::vector<Trade> with and without reserve(1) using an optimized -O3 build.
+
+No-match path: Removing reserve(1) reduced allocations and improved the measured median in one A/B comparison.
+
+Single-trade path: Performance was similar between the two implementations.
+
+Three-trade sweep: Keeping reserve(1) was approximately 4–5% faster across two alternating A/B comparisons.
+
+Correctness: All benchmark checksums matched, and the existing 96 tests passed.
+
+Decision: Keep the no-reserve implementation provisionally. The results demonstrate a workload-dependent trade-off, not a universal optimization. Investigate inline trade storage before making further changes.
+
+Measurement limitation: Benchmarks were performed under WSL2, where timing variation may affect small performance differences.
