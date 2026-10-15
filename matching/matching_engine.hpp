@@ -7,6 +7,7 @@
 #include "matching/order.hpp"
 #include "matching/order_book.hpp"
 #include "matching/process_result.hpp"
+#include "matching/small_trade_buffer.hpp"
 
 namespace trading {
 
@@ -28,7 +29,7 @@ public:
             );
         }
 
-        std::vector<Trade> trades;
+        SmallTradeBuffer trades;
 
         if (order.side == Side::Buy) {
            while (order.quantity > 0) {

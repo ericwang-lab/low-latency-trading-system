@@ -8,6 +8,7 @@
 
 #include "matching/matching_engine.hpp"
 #include "matching/order_book.hpp"
+#include "matching/small_trade_buffer.hpp"
 
 namespace {
 
@@ -131,8 +132,6 @@ void print_stats(
 bool benchmark_insert_cancel() {
     trading::OrderBook book;
 
-    book.reserve_order_capacity(100);
-
     trading::Order order{
         .id = 1,
         .side = trading::Side::Buy,
@@ -180,8 +179,6 @@ bool benchmark_insert_cancel() {
 bool benchmark_full_match() {
     trading::OrderBook book;
     trading::MatchingEngine engine{book};
-
-    book.reserve_order_capacity(100);
 
     trading::Order resting_sell{
         .id = 1,
@@ -240,8 +237,6 @@ bool benchmark_no_match() {
     trading::OrderBook book;
     trading::MatchingEngine engine{book};
 
-    book.reserve_order_capacity(100);
-
     trading::Order incoming_buy{
         .id = 1,
         .side = trading::Side::Buy,
@@ -287,13 +282,68 @@ int main() {
     const bool match_valid =
         benchmark_full_match();
 
-    if (!cancel_valid || !match_valid) {
+    const bool no_match_valid =
+        benchmark_no_match();
+
+    if (!cancel_valid || !match_valid || !no_match_valid) {
         std::cerr
             << "ERROR: Workload validation failed\n";
         return 1;
     }
 
-    const bool no_match_valid = benchmark_no_match();
+    // ------------------------------------------------------------
+    // Workload 4: SmallTradeBuffer
+    // ------------------------------------------------------------
+
+    std::cout << "=== SmallTradeBuffer ===\n";
+
+    bool buffer_valid = true;
+
+    for (std::size_t count : {0, 1, 4, 5, 6}) {
+        trading::SmallTradeBuffer buffer;
+
+        begin_measurement();
+
+        for (std::size_t i = 0; i < count; ++i) {
+            buffer.push_back(trading::Trade{
+                .buy_order_id =
+                    static_cast<trading::OrderId>(i + 1),
+                .sell_order_id =
+                    static_cast<trading::OrderId>(i + 101),
+                .price = 10100,
+                .quantity = 50
+            });
+        }
+
+        const AllocationStats stats =
+            end_measurement();
+
+        bool valid = buffer.size() == count;
+
+        for (std::size_t i = 0; i < count; ++i) {
+            if (buffer[i].buy_order_id != i + 1 ||
+                buffer[i].sell_order_id != i + 101 ||
+                buffer[i].price != 10100 ||
+                buffer[i].quantity != 50) {
+                valid = false;
+            }
+        }
+
+        buffer_valid = buffer_valid && valid;
+
+        std::cout
+            << "Trades: " << count
+            << ", Allocations: " << stats.allocations
+            << ", Size: " << buffer.size()
+            << ", Valid: " << std::boolalpha << valid
+            << '\n';
+    }
+
+    if (!buffer_valid) {
+        std::cerr
+            << "ERROR: SmallTradeBuffer validation failed\n";
+        return 1;
+    }
 
     return 0;
 }

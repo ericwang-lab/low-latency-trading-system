@@ -591,3 +591,30 @@ Correctness: All benchmark checksums matched, and the existing 96 tests passed.
 Decision: Keep the no-reserve implementation provisionally. The results demonstrate a workload-dependent trade-off, not a universal optimization. Investigate inline trade storage before making further changes.
 
 Measurement limitation: Benchmarks were performed under WSL2, where timing variation may affect small performance differences.
+## Small Trade Buffer Optimization
+
+The matching engine originally stored execution reports in
+`std::vector<Trade>`, which required a heap allocation even
+for a single trade.
+
+Introduced `SmallTradeBuffer` with inline capacity for four
+trades and a vector for overflow.
+
+Allocation benchmark results:
+
+- 1–4 trades: 0 allocations
+- 5 trades: 1 allocation
+- 6 trades: 2 allocations
+- Full match: reduced from 1 to 0 allocations
+
+The optimization removes heap allocations from the common
+single-trade execution path.
+
+Trade-offs:
+- Larger ProcessResult object due to inline storage.
+- Additional copying of inline trades when moving results.
+- More complex iterator implementation.
+- Overflow trades are stored separately from inline trades.
+
+Latency improvement has not yet been established and requires
+separate benchmarking.
